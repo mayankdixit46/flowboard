@@ -5,13 +5,20 @@ A colorful, fully customizable agile Kanban board that runs entirely in your bro
 **Live page:** https://mayankdixit46.github.io/flowboard/
 
 ## Features
-- Groups (columns) you can add, rename, recolor, reorder, and delete
-- Drag-and-drop cards within and across groups
+- Groups you can add, rename, recolor, reorder, and delete
+- Drag cards with a mouse, or by the grip on a phone
 - Work item types: **Epic, Story, Task, Bug**
 - **T-shirt size** estimates (XS–XXL) and priority levels
-- **Epic roll-ups** — link stories/tasks to an epic
-- Custom labels, assignees, due dates (overdue flagging)
-- Live search, light/dark/system theme, and JSON backup/restore
+- **Epic roll-ups** — linked count, points, and overdue items
+- Custom labels, assignees, due dates (today and overdue)
+- Search, type and overdue filters, light/dark/system theme
+- Download or restore a JSON backup
+
+## Shortcuts
+- `/` search
+- `N` new item in the focused group
+- `Alt` + arrow keys move the focused card
+- `Esc` closes a panel, or clears the current search
 
 ## Run locally
-It's a single file — just open `index.html` in a browser.
+It's a single file — open `index.html` in a browser. Nothing is installed and nothing leaves the browser.
