@@ -12,6 +12,7 @@ A colorful, fully customizable agile Kanban board that runs entirely in your bro
 - **Epic roll-ups** — linked count, points, and overdue items
 - Custom labels, assignees, due dates (today and overdue)
 - Search, type and overdue filters, light/dark/system theme
+- Summary dashboard for counts, points, groups, types, priority, and people
 - Download or restore a JSON backup
 
 ## Shortcuts

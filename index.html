@@ -359,6 +359,27 @@
   .icon-btn svg { width: 16px; height: 16px; display: block; }
   .data-area { width: 100%; min-height: 96px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; padding: 10px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface-2); color: var(--fg); resize: vertical; }
   .hint { font-size: 12.5px; color: var(--muted); margin: 0; }
+  .panel.dash { width: min(680px, 100vw); }
+  .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; }
+  .dash-stat {
+    text-align: left; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px; min-height: 76px; width: 100%;
+  }
+  .dash-stat strong {
+    display: block; font-family: var(--font-display); font-size: 26px;
+    letter-spacing: -.03em; line-height: 1.1;
+  }
+  .dash-stat span { color: var(--muted); font-size: 12px; font-weight: 700; }
+  .dash-stat[data-hot="true"] strong { color: var(--p-critical); }
+  .dash-rows { display: flex; flex-direction: column; gap: 8px; }
+  .dash-line {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center;
+    width: 100%; text-align: left; padding: 2px 0; background: none; border: 0; border-radius: 8px;
+  }
+  .dash-line b { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dash-line em { font-style: normal; font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 700; font-size: 12px; }
+  .dash-track { grid-column: 1 / -1; height: 7px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+  .dash-fill { display: block; height: 100%; border-radius: 99px; width: 0; }
   details.advanced > summary { cursor: pointer; font-weight: 700; color: var(--muted); font-size: 13px; }
   .data-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .file-btn input { display: none; }
@@ -383,6 +404,7 @@
   @media (hover: hover) and (pointer: fine) {
     .board-title:hover, .col-name:hover { background: var(--surface-2); }
     .btn:hover, .add-item:hover, .menu button:hover, .search-clear:hover, .col-grip:hover, .col-menu-btn:hover, .drag-handle:hover { background: var(--surface-3); color: var(--fg); }
+    button.dash-stat:hover, button.dash-line:hover { background: var(--surface-3); }
     .btn-primary:hover { background: #5b4bd6; color: #fff; }
     .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-lift); }
     .add-col:hover { color: var(--fg); background: var(--surface-2); }
@@ -433,6 +455,7 @@
     </div>
     <div class="actions">
       <button type="button" class="btn btn-icon" id="themeBtn" title="Theme" aria-label="Switch theme"></button>
+      <button type="button" class="btn" id="summaryBtn" aria-label="Summary dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19V5M4 19h16"/><path d="M8 16v-5M12 16V8M16 16v-3"/></svg><span class="btn-label">Summary</span></button>
       <button type="button" class="btn" id="customizeBtn" aria-label="Customize board"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 6.6 19l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1-2.7H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 6.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg><span class="btn-label">Customize</span></button>
       <button type="button" class="btn btn-primary" id="addColBtn" aria-label="Add group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-label">Group</span></button>
     </div>
@@ -552,29 +575,40 @@
       feat: { id: "l_feat", name: "Feature", color: "#00c875" },
       research: { id: "l_res", name: "Research", color: "#579bfc" }
     };
-    var epicId = uid();
     return {
-      title: "Product Sprint",
+      title: "Email & Contact Board",
       accent: "#6c5ce7",
       labels: [L.design, L.bug, L.feat, L.research],
       columns: [
-        { id: uid(), name: "Backlog", color: "#7e8299", cards: [
-          { id: epicId, title: "Onboarding revamp", notes: "Umbrella epic for activation work this quarter.", type: "epic", size: "XL", epic: "", priority: "medium", assignee: "Priya Shah", due: "", labels: ["l_res"] },
-          { id: uid(), title: "Audit onboarding funnel drop-off", notes: "Pull last 30 days of activation data and flag the biggest step losses.", type: "story", size: "M", epic: epicId, priority: "medium", assignee: "Priya Shah", due: "", labels: ["l_res"] },
-          { id: uid(), title: "Dark mode polish pass", notes: "", type: "task", size: "S", epic: "", priority: "low", assignee: "", due: "", labels: ["l_design"] }
-        ]},
-        { id: uid(), name: "In Progress", color: "#579bfc", cards: [
-          { id: uid(), title: "Build drag-and-drop board view", notes: "Cards reorder within a group and move across groups.", type: "story", size: "L", epic: "", priority: "high", assignee: "Mayank D", due: offsetDate(3), labels: ["l_feat"] },
-          { id: uid(), title: "Fix date picker crash on Safari", notes: "Repro on iOS 17 only.", type: "bug", size: "S", epic: epicId, priority: "critical", assignee: "Leo Martins", due: offsetDate(1), labels: ["l_bug"] }
-        ]},
-        { id: uid(), name: "Review", color: "#fdab3d", cards: [
-          { id: uid(), title: "Custom label color palette", notes: "", type: "task", size: "M", epic: "", priority: "medium", assignee: "Aya Kim", due: offsetDate(-1), labels: ["l_design", "l_feat"] }
-        ]},
-        { id: uid(), name: "Done", color: "#00c875", cards: [
-          { id: uid(), title: "Set up board persistence", notes: "Saves to the browser automatically.", type: "task", size: "S", epic: "", priority: "low", assignee: "Mayank D", due: offsetDate(-4), labels: ["l_feat"] }
-        ]}
+        { id: uid(), name: "Backlog", color: "#7e8299", cards: [] },
+        { id: uid(), name: "In Progress", color: "#579bfc", cards: [] },
+        { id: uid(), name: "Review", color: "#fdab3d", cards: [] },
+        { id: uid(), name: "Done", color: "#00c875", cards: [] }
       ]
     };
+  }
+
+  var PLACEHOLDER_TITLES = {
+    "Onboarding revamp": true,
+    "Audit onboarding funnel drop-off": true,
+    "Dark mode polish pass": true,
+    "Build drag-and-drop board view": true,
+    "Fix date picker crash on Safari": true,
+    "Custom label color palette": true,
+    "Set up board persistence": true
+  };
+  function dropPlaceholder(board) {
+    if (!board || board.title !== "Product Sprint") return false;
+    board.title = "Email & Contact Board";
+    for (var i = 0; i < board.columns.length; i++) {
+      var kept = [];
+      var cards = board.columns[i].cards || [];
+      for (var j = 0; j < cards.length; j++) {
+        if (!PLACEHOLDER_TITLES[cards[j].title]) kept.push(cards[j]);
+      }
+      board.columns[i].cards = kept;
+    }
+    return true;
   }
 
   function normalize(input) {
@@ -659,6 +693,7 @@
     try { state = normalize(JSON.parse(storedRaw)); } catch (err) { state = null; }
   }
   if (!state) state = seed();
+  dropPlaceholder(state);
 
   var filters = { type: "", overdue: false, epic: "" };
   var query = "";
@@ -1016,10 +1051,10 @@
     list.className = "cards";
     list.dataset.col = col.id;
     for (var i = 0; i < matches.length; i++) list.appendChild(renderCard(matches[i], index));
-    if (!matches.length) {
+    if (!matches.length && col.cards.length) {
       var hint = document.createElement("div");
       hint.className = "empty-hint";
-      hint.textContent = col.cards.length ? "Nothing matches" : "Drop cards here";
+      hint.textContent = "Nothing matches";
       list.appendChild(hint);
     }
     el.appendChild(list);
@@ -2110,7 +2145,7 @@
     fileLabel.appendChild(file);
     var resetBtn = button("btn");
     resetBtn.style.color = "var(--p-critical)";
-    resetBtn.textContent = "Reset to sample";
+    resetBtn.textContent = "Reset board";
     resetBtn.addEventListener("click", function () {
       var snap = clone(state);
       state = seed();
@@ -2118,7 +2153,7 @@
       render();
       document.getElementById("boardTitle").value = state.title;
       closePanel();
-      toast("Reset to sample board", function () {
+      toast("Board reset", function () {
         state = snap;
         save(true);
         render();
@@ -2225,6 +2260,246 @@
     openMenuEl = m;
     setTimeout(function () { document.addEventListener("click", closeMenu); }, 0);
   }
+  function boardSummary() {
+    var total = 0;
+    var overdue = 0;
+    var dueToday = 0;
+    var unassigned = 0;
+    var openPoints = 0;
+    var donePoints = 0;
+    var byType = {};
+    var byPriority = {};
+    var byPerson = {};
+    var columns = [];
+    for (var t = 0; t < TYPES.length; t++) byType[TYPES[t].id] = 0;
+    for (var p = 0; p < PRIORITIES.length; p++) byPriority[PRIORITIES[p].id] = 0;
+    for (var i = 0; i < state.columns.length; i++) {
+      var col = state.columns[i];
+      var done = String(col.name || "").trim().toLowerCase() === "done";
+      var count = 0;
+      var points = 0;
+      var late = 0;
+      for (var j = 0; j < col.cards.length; j++) {
+        var card = col.cards[j];
+        var pts = POINTS[card.size] || 0;
+        total += 1;
+        count += 1;
+        points += pts;
+        if (done) donePoints += pts;
+        else openPoints += pts;
+        var due = fmtDue(card.due);
+        if (due && due.overdue) { overdue += 1; late += 1; }
+        if (due && due.today) dueToday += 1;
+        if (!String(card.assignee || "").trim()) unassigned += 1;
+        byType[card.type] = (byType[card.type] || 0) + 1;
+        byPriority[card.priority] = (byPriority[card.priority] || 0) + 1;
+        var who = String(card.assignee || "").trim();
+        if (who) byPerson[who] = (byPerson[who] || 0) + 1;
+      }
+      columns.push({ id: col.id, name: col.name, color: safeColor(col.color, "#7e8299"), count: count, points: points, overdue: late });
+    }
+    var people = [];
+    for (var name in byPerson) if (Object.prototype.hasOwnProperty.call(byPerson, name)) people.push({ name: name, count: byPerson[name] });
+    people.sort(function (a, b) { return b.count - a.count || a.name.localeCompare(b.name); });
+    return {
+      total: total, overdue: overdue, dueToday: dueToday, unassigned: unassigned,
+      openPoints: openPoints, donePoints: donePoints, byType: byType, byPriority: byPriority,
+      columns: columns, people: people
+    };
+  }
+  function dashStat(value, label, hot, onClick) {
+    var el = onClick ? button("dash-stat") : document.createElement("div");
+    if (!onClick) el.className = "dash-stat";
+    if (hot) el.setAttribute("data-hot", "true");
+    var strong = document.createElement("strong");
+    strong.textContent = String(value);
+    var span = document.createElement("span");
+    span.textContent = label;
+    el.appendChild(strong);
+    el.appendChild(span);
+    if (onClick) el.addEventListener("click", onClick);
+    return el;
+  }
+  function dashRows(items, max) {
+    var wrap = document.createElement("div");
+    wrap.className = "dash-rows";
+    var peak = max || 1;
+    for (var i = 0; i < items.length; i++) {
+      (function (item) {
+        var line = item.onClick ? button("dash-line") : document.createElement("div");
+        if (!item.onClick) line.className = "dash-line";
+        var name = document.createElement("b");
+        name.textContent = item.name;
+        var meta = document.createElement("em");
+        meta.textContent = item.meta;
+        var track = document.createElement("span");
+        track.className = "dash-track";
+        var fill = document.createElement("span");
+        fill.className = "dash-fill";
+        fill.style.width = Math.round((item.count / peak) * 100) + "%";
+        fill.style.background = item.color;
+        track.appendChild(fill);
+        line.appendChild(name);
+        line.appendChild(meta);
+        line.appendChild(track);
+        if (item.onClick) line.addEventListener("click", item.onClick);
+        wrap.appendChild(line);
+      })(items[i]);
+    }
+    return wrap;
+  }
+  function openDashboard() {
+    triggerEl = document.getElementById("summaryBtn");
+    returnCardId = null;
+    var summary = boardSummary();
+    openScrim();
+    panel = document.createElement("aside");
+    panel.className = "panel dash";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-label", "Summary");
+    var head = document.createElement("div");
+    head.className = "panel-head";
+    head.innerHTML = "<h2>Summary</h2>";
+    var close = button("btn btn-icon");
+    close.setAttribute("aria-label", "Close");
+    close.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+    close.addEventListener("click", function () { closePanel(); });
+    head.appendChild(close);
+    panel.appendChild(head);
+
+    var body = document.createElement("div");
+    body.className = "panel-body";
+    var intro = document.createElement("p");
+    intro.className = "hint";
+    intro.textContent = summary.total
+      ? "Counts, estimates, and who the work is waiting on. Choose a row to show just that slice on the board."
+      : "The board is empty. Add an item and this summary will fill in.";
+    body.appendChild(intro);
+
+    var grid = document.createElement("div");
+    grid.className = "dash-grid";
+    grid.appendChild(dashStat(summary.total, summary.total === 1 ? "Item" : "Items"));
+    grid.appendChild(dashStat(summary.overdue, "Overdue", summary.overdue > 0, summary.overdue ? function () {
+      filters.type = "";
+      filters.epic = "";
+      filters.overdue = true;
+      closePanel();
+      render();
+    } : null));
+    grid.appendChild(dashStat(summary.dueToday, "Due today"));
+    grid.appendChild(dashStat(summary.unassigned, "Unassigned"));
+    grid.appendChild(dashStat(summary.openPoints, "Open points"));
+    grid.appendChild(dashStat(summary.donePoints, "Done points"));
+    body.appendChild(grid);
+
+    function applyType(id) {
+      filters.type = id;
+      filters.overdue = false;
+      filters.epic = "";
+      closePanel();
+      render();
+    }
+    var groups = section("Groups");
+    var groupItems = [];
+    var groupMax = 1;
+    for (var g = 0; g < summary.columns.length; g++) {
+      var col = summary.columns[g];
+      groupMax = Math.max(groupMax, col.count);
+      var bits = [col.count === 1 ? "1 item" : col.count + " items"];
+      if (col.points) bits.push(col.points + " pts");
+      if (col.overdue) bits.push(col.overdue + " overdue");
+      groupItems.push({
+        name: col.name,
+        meta: bits.join(" · "),
+        count: col.count,
+        color: col.color,
+        onClick: (function (id) {
+          return function () {
+            closePanel();
+            var el = board.querySelector('.col[data-col="' + id + '"]');
+            if (el && el.scrollIntoView) el.scrollIntoView({ inline: "center", block: "nearest", behavior: reduceMotion() ? "auto" : "smooth" });
+          };
+        })(col.id)
+      });
+    }
+    groups.appendChild(summary.columns.length ? dashRows(groupItems, groupMax) : document.createTextNode("No groups yet."));
+    body.appendChild(groups);
+
+    var types = section("Types");
+    var typeItems = [];
+    var typeMax = 1;
+    for (var ti = 0; ti < TYPES.length; ti++) {
+      var n = summary.byType[TYPES[ti].id] || 0;
+      typeMax = Math.max(typeMax, n);
+      typeItems.push({
+        name: TYPES[ti].name,
+        meta: String(n),
+        count: n,
+        color: TYPES[ti].color,
+        onClick: (function (id) { return function () { applyType(id); }; })(TYPES[ti].id)
+      });
+    }
+    types.appendChild(dashRows(typeItems, typeMax));
+    body.appendChild(types);
+
+    var prios = section("Priority");
+    var prioItems = [];
+    var prioMax = 1;
+    for (var pi = 1; pi < PRIORITIES.length; pi++) {
+      var pn = summary.byPriority[PRIORITIES[pi].id] || 0;
+      prioMax = Math.max(prioMax, pn);
+      prioItems.push({
+        name: PRIORITIES[pi].name,
+        meta: String(pn),
+        count: pn,
+        color: PRIORITIES[pi].id === "low" ? "#00c875" : PRIORITIES[pi].id === "medium" ? "#579bfc" : PRIORITIES[pi].id === "high" ? "#ff7b54" : "#e2445c"
+      });
+    }
+    var noneCount = summary.byPriority.none || 0;
+    if (noneCount) {
+      prioMax = Math.max(prioMax, noneCount);
+      prioItems.push({ name: "None", meta: String(noneCount), count: noneCount, color: "#7e8299" });
+    }
+    prios.appendChild(dashRows(prioItems, prioMax));
+    body.appendChild(prios);
+
+    if (summary.people.length) {
+      var people = section("People");
+      var personItems = [];
+      var personMax = 1;
+      for (var ri = 0; ri < summary.people.length; ri++) {
+        personMax = Math.max(personMax, summary.people[ri].count);
+        personItems.push({
+          name: summary.people[ri].name,
+          meta: String(summary.people[ri].count),
+          count: summary.people[ri].count,
+          color: avatarColor(summary.people[ri].name),
+          onClick: (function (who) {
+            return function () {
+              query = who.toLowerCase();
+              filters.type = "";
+              filters.overdue = false;
+              filters.epic = "";
+              var s = document.getElementById("search");
+              s.value = who;
+              document.getElementById("searchClear").hidden = false;
+              closePanel();
+              render();
+            };
+          })(summary.people[ri].name)
+        });
+      }
+      people.appendChild(dashRows(personItems, personMax));
+      body.appendChild(people);
+    }
+
+    panel.appendChild(body);
+    trapFocus(panel);
+    document.body.appendChild(panel);
+    close.focus();
+  }
+  document.getElementById("summaryBtn").addEventListener("click", openDashboard);
   document.getElementById("customizeBtn").addEventListener("click", openCustomize);
 
   var toastEl = null;
@@ -2371,6 +2646,16 @@
     expect("label color sanitized", cleaned.labels[0].color, "#7e8299");
     expect("type sanitized", cleaned.columns[0].cards[0].type, "task");
     expect("unknown label dropped", cleaned.columns[0].cards[0].labels, []);
+    var renamed = normalize({
+      title: "Product Sprint",
+      columns: [{ id: "c", name: "Backlog", cards: [
+        { id: "1", title: "Onboarding revamp" },
+        { id: "2", title: "Reply to Maya" }
+      ]}]
+    });
+    expect("placeholder dropped", dropPlaceholder(renamed), true);
+    expect("board renamed", renamed.title, "Email & Contact Board");
+    expect("real card kept", renamed.columns[0].cards.map(function (c) { return c.title; }), ["Reply to Maya"]);
     var failed = report.some(function (line) { return line.indexOf("FAIL") === 0; });
     document.documentElement.setAttribute("data-selftest", failed ? "fail" : "pass");
     document.documentElement.setAttribute("data-selftest-detail", report.join(" | "));
