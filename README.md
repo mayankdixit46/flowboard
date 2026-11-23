@@ -1,8 +1,10 @@
 # Flowboard
 
-A colorful, fully customizable agile Kanban board that runs entirely in your browser — no backend, no sign-in. Your board saves to local storage.
+A colorful, fully customizable agile Kanban board.
 
 **Live page:** https://mayankdixit46.github.io/flowboard/
+
+The published app keeps one shared board in its database. Closing the window does not clear it, and anyone who can open the app sees the same items. Changes lists who did what. On the GitHub Pages copy, the board stays in that browser only.
 
 ## Features
 - Groups you can add, rename, recolor, reorder, and delete
@@ -23,4 +25,14 @@ A colorful, fully customizable agile Kanban board that runs entirely in your bro
 - `Esc` closes a panel, or clears the current search
 
 ## Run locally
-It's a single file — open `index.html` in a browser. Nothing is installed and nothing leaves the browser.
+
+The GitHub Pages file is `index.html`. Open it directly and the board stays in that browser.
+
+The shared app is the Next.js server in this folder. It uses an in-memory database until it is published:
+
+```
+npm install
+npm run dev
+```
+
+Then open the local URL the server prints. `npm run build` applies the database migration when a hosted database is configured.

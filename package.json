@@ -1,0 +1,23 @@
+{
+  "name": "flowboard",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/copy-board.mjs && next dev -p 8742",
+    "build": "node scripts/copy-board.mjs && next build && node scripts/migrate.mjs",
+    "start": "next start -p 8742"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "next": "^15.5.4",
+    "pg": "^8.16.3",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@types/pg": "^8.15.5",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "typescript": "^5.9.2"
+  }
+}

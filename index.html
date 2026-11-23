@@ -109,7 +109,8 @@
     font-family: var(--font-display); font-weight: 700; font-size: 20px;
     letter-spacing: -.01em; color: var(--fg);
     background: transparent; border: 1px solid transparent; border-radius: 8px;
-    padding: 4px 8px; max-width: 46vw; min-width: 80px; width: 100%;
+    padding: 4px 8px; max-width: 46vw; min-width: 0; width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .stats { font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .spacer { flex: 1 1 auto; }
@@ -404,6 +405,17 @@
     font-weight: 600; max-width: min(440px, calc(100vw - 24px));
   }
   .toast button { color: #c4b8ff; font-weight: 800; }
+  .remote-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    margin: 8px 16px 0; padding: 10px 12px; border-radius: 10px;
+    background: color-mix(in oklab, var(--accent) 12%, var(--surface));
+    border: 1px solid var(--border); font-weight: 600;
+  }
+  .remote-banner[hidden] { display: none; }
+  .remote-banner .actions { display: flex; gap: 8px; }
+  .activity-item { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .activity-item strong { font-size: 14px; }
+  .activity-item span { color: var(--muted); font-size: 12px; }
   .empty-hint { color: var(--faint); font-size: 12.5px; text-align: center; padding: 14px 6px; }
   .sr {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -451,7 +463,7 @@
 </style>
 </head>
 <body>
-<noscript><p>Flowboard needs JavaScript. It still runs entirely in this browser — nothing is sent to a server.</p></noscript>
+<noscript><p>Flowboard needs JavaScript.</p></noscript>
 <div id="app">
   <header class="topbar">
     <div class="brand">
@@ -459,6 +471,7 @@
       <input class="board-title" id="boardTitle" aria-label="Board name" maxlength="120" spellcheck="false" autocomplete="off" />
     </div>
     <span id="boardStats" class="stats"></span>
+    <span id="syncNote" class="stats"></span>
     <div class="spacer"></div>
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -467,11 +480,13 @@
     </div>
     <div class="actions">
       <button type="button" class="btn btn-icon" id="themeBtn" title="Theme" aria-label="Switch theme"></button>
+      <button type="button" class="btn" id="changesBtn" aria-label="Changes from other people"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h13"/></svg><span class="btn-label">Changes</span></button>
       <button type="button" class="btn" id="summaryBtn" aria-label="Summary dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19V5M4 19h16"/><path d="M8 16v-5M12 16V8M16 16v-3"/></svg><span class="btn-label">Summary</span></button>
       <button type="button" class="btn" id="customizeBtn" aria-label="Customize board"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 6.6 19l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1-2.7H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 6.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg><span class="btn-label">Customize</span></button>
       <button type="button" class="btn btn-primary" id="addColBtn" aria-label="Add group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-label">Group</span></button>
     </div>
   </header>
+  <div id="remoteBanner" class="remote-banner" hidden></div>
   <div class="filter-bar" id="filters">
     <div class="filters" role="toolbar" aria-label="Filter cards">
       <button type="button" class="filter-chip" data-filter="type" data-value="" aria-pressed="true">All</button>
@@ -496,6 +511,8 @@
   "use strict";
 
   var LS_KEY = "flowboard.v1";
+  var LS_REV = "flowboard.rev";
+  var LS_PENDING = "flowboard.pending";
   var LS_THEME = "flowboard.theme";
 
   var COLORS = [
@@ -737,23 +754,64 @@
   var saveTimer = 0;
   var saveWarned = false;
   var renderFrame = 0;
+  var serverRevision = 0;
+  var knownRevision = 0;
+  var shared = false;
+  var applyingRemote = false;
+  var dirty = false;
+  var pendingLocal = false;
+  try { pendingLocal = localStorage.getItem(LS_PENDING) === "1"; } catch (ePending) { pendingLocal = false; }
+  var pushTimer = 0;
+  var pullTimer = 0;
+  var lastActivity = [];
+  var viewerName = "";
+  var pendingRemote = null;
+  try { knownRevision = parseInt(localStorage.getItem(LS_REV) || "0", 10) || 0; } catch (eRev) { knownRevision = 0; }
 
+  function markDirty() {
+    dirty = true;
+    pendingLocal = true;
+    try { localStorage.setItem(LS_PENDING, "1"); } catch (e) {}
+  }
+  function clearPending() {
+    dirty = false;
+    pendingLocal = false;
+    try { localStorage.removeItem(LS_PENDING); } catch (e) {}
+  }
   function save(now) {
     applyAccent();
+    if (!applyingRemote) markDirty();
     if (saveTimer) { clearTimeout(saveTimer); saveTimer = 0; }
     if (now) flushSave();
-    else saveTimer = setTimeout(flushSave, 250);
+    else saveTimer = setTimeout(flushSave, 200);
   }
-  function flushSave() {
-    if (saveTimer) { clearTimeout(saveTimer); saveTimer = 0; }
-    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-    catch (e) {
+  function writeLocal() {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(state));
+      localStorage.setItem(LS_REV, String(knownRevision));
+    } catch (e) {
       if (!saveWarned) { saveWarned = true; toast("This browser blocked saving the board."); }
     }
   }
-  window.addEventListener("pagehide", flushSave);
+  function flushSave() {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = 0; }
+    writeLocal();
+    if (!applyingRemote) schedulePush();
+  }
+  function schedulePush() {
+    if (!shared || applyingRemote) return;
+    if (pushTimer) clearTimeout(pushTimer);
+    pushTimer = setTimeout(function () { pushBoard(false); }, 350);
+  }
+  window.addEventListener("pagehide", function () {
+    writeLocal();
+    if (shared && dirty && !applyingRemote) pushBoard(true);
+  });
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") flushSave();
+    if (document.visibilityState === "hidden") {
+      writeLocal();
+      if (shared && dirty && !applyingRemote) pushBoard(true);
+    }
   });
   function applyAccent() {
     document.documentElement.style.setProperty("--accent", safeColor(state.accent, "#6c5ce7"));
@@ -1709,6 +1767,7 @@
   }
 
   function closePanel(opts) {
+    if (!applyingRemote) flushSave();
     var restore = !opts || opts.restore !== false;
     if (scrim) { scrim.remove(); scrim = null; }
     if (panel) { panel.remove(); panel = null; }
@@ -1994,7 +2053,7 @@
             var step = touch(idx);
             step.text = text.value;
             row.classList.toggle("is-done", !!step.done && String(step.text || "").trim());
-            save();
+            save(true);
             renderSoon();
           });
           row.appendChild(box);
@@ -2666,9 +2725,10 @@
   titleInput.addEventListener("input", function () { state.title = titleInput.value; syncDocumentTitle(); save(); });
   titleInput.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); titleInput.blur(); } });
   titleInput.addEventListener("blur", function () {
-    var v = titleInput.value.trim();
-    state.title = v || "Untitled board";
-    titleInput.value = state.title;
+    var v = titleInput.value.trim() || "Untitled board";
+    titleInput.value = v;
+    if (v === state.title) return;
+    state.title = v;
     syncDocumentTitle();
     save(true);
   });
@@ -2713,11 +2773,261 @@
     }
   });
 
+  function cardCount(board) {
+    var n = 0;
+    var cols = board && board.columns ? board.columns : [];
+    for (var i = 0; i < cols.length; i++) n += (cols[i].cards || []).length;
+    return n;
+  }
+  function canon(value) {
+    if (Array.isArray(value)) {
+      var items = [];
+      for (var i = 0; i < value.length; i++) items.push(canon(value[i]));
+      return "[" + items.join(",") + "]";
+    }
+    if (value && typeof value === "object") {
+      var keys = Object.keys(value).sort();
+      var parts = [];
+      for (var k = 0; k < keys.length; k++) parts.push(JSON.stringify(keys[k]) + ":" + canon(value[keys[k]]));
+      return "{" + parts.join(",") + "}";
+    }
+    return JSON.stringify(value);
+  }
+  function sameBoard(a, b) {
+    var left = normalize(a);
+    var right = normalize(b);
+    return !!(left && right && canon(left) === canon(right));
+  }
+  function setSyncNote(data) {
+    var note = document.getElementById("syncNote");
+    if (!note) return;
+    if (!shared) { note.textContent = "This browser"; note.title = "Saved in this browser only"; return; }
+    var who = data && data.updatedBy ? data.updatedBy : "";
+    note.textContent = who ? "Shared · " + who : "Shared";
+    note.title = who ? "Last change by " + who : "Shared with everyone who can open this board";
+  }
+  function hideRemoteBanner() {
+    var banner = document.getElementById("remoteBanner");
+    if (banner) { banner.hidden = true; banner.innerHTML = ""; }
+  }
+  function showRemoteBanner(data) {
+    var banner = document.getElementById("remoteBanner");
+    if (!banner) return;
+    banner.hidden = false;
+    banner.innerHTML = "";
+    var text = document.createElement("span");
+    var who = data.updatedBy || "Someone";
+    text.textContent = who + " changed the board. Load that version, or keep yours and share it.";
+    var actions = document.createElement("div");
+    actions.className = "actions";
+    var keep = button("btn");
+    keep.textContent = "Keep mine";
+    keep.addEventListener("click", function () {
+      serverRevision = data.revision || serverRevision;
+      pendingRemote = null;
+      hideRemoteBanner();
+      pushBoard(false);
+    });
+    var load = button("btn btn-primary");
+    load.textContent = "Load theirs";
+    load.addEventListener("click", function () { applyRemote(data, false); });
+    actions.appendChild(keep);
+    actions.appendChild(load);
+    banner.appendChild(text);
+    banner.appendChild(actions);
+  }
+  function applyRemote(data, announceIt) {
+    var next = normalize(data.board);
+    if (!next) return;
+    applyingRemote = true;
+    state = next;
+    serverRevision = data.revision || 0;
+    knownRevision = serverRevision;
+    clearPending();
+    pendingRemote = null;
+    if (data.activity) lastActivity = data.activity;
+    writeLocal();
+    var titleInput = document.getElementById("boardTitle");
+    if (titleInput && document.activeElement !== titleInput) titleInput.value = state.title;
+    hideRemoteBanner();
+    render();
+    syncDocumentTitle();
+    setSyncNote(data);
+    applyingRemote = false;
+    if (announceIt && data.updatedBy) {
+      var summary = data.activity && data.activity[0] ? data.activity[0].summary : "updated the board";
+      toast(data.updatedBy + " " + summary);
+    }
+  }
+  function pushBoard(keepalive) {
+    if (!shared || applyingRemote) return;
+    var revision = serverRevision;
+    var payload = JSON.stringify({ board: state, baseRevision: revision });
+    fetch("/api/board", {
+      method: "PUT",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: payload,
+      keepalive: !!keepalive
+    }).then(function (res) {
+      return res.json().then(function (body) { return { status: res.status, body: body }; }, function () { return { status: res.status, body: null }; });
+    }).then(function (result) {
+      if (!result.body) return;
+      if (result.status === 409 && result.body.board) {
+        if (sameBoard(state, result.body.board)) {
+          adopt(result.body);
+          return;
+        }
+        pendingRemote = result.body;
+        showRemoteBanner(result.body);
+        return;
+      }
+      if (result.status >= 200 && result.status < 300) {
+        serverRevision = result.body.revision || serverRevision;
+        knownRevision = serverRevision;
+        clearPending();
+        if (result.body.activity) lastActivity = result.body.activity;
+        writeLocal();
+        setSyncNote(result.body);
+      }
+    }).catch(function () {});
+  }
+  function editingNow() {
+    return !!(panel || typingTarget(document.activeElement));
+  }
+  function pullBoard() {
+    return fetch("/api/board", { headers: { accept: "application/json" }, cache: "no-store" }).then(function (res) {
+      if (!res.ok) throw new Error("offline");
+      return res.json();
+    }).then(function (data) {
+      shared = true;
+      viewerName = data.viewerName || "";
+      if (data.activity) lastActivity = data.activity;
+      if (pendingRemote && data.revision === pendingRemote.revision) {
+        setSyncNote(data);
+        return;
+      }
+      if (!data.board || !data.revision) {
+        serverRevision = 0;
+        if (pendingLocal || dirty || (storedRaw && cardCount(state))) schedulePush();
+        setSyncNote(data);
+        return;
+      }
+      if (sameBoard(state, data.board)) {
+        adopt(data);
+        return;
+      }
+      if ((pendingLocal || dirty) && data.revision === knownRevision) {
+        serverRevision = data.revision;
+        schedulePush();
+        setSyncNote(data);
+        return;
+      }
+      var firstLoad = !serverRevision;
+      if (firstLoad && (pendingLocal || dirty)) {
+        pendingRemote = data;
+        showRemoteBanner(data);
+        setSyncNote(data);
+        return;
+      }
+      if (firstLoad && knownRevision === 0 && storedRaw && cardCount(state) && cardCount(data.board)) {
+        pendingRemote = data;
+        showRemoteBanner(data);
+        setSyncNote(data);
+        return;
+      }
+      if (firstLoad && (!storedRaw || !cardCount(state))) {
+        applyRemote(data, false);
+        return;
+      }
+      if (data.revision === serverRevision || (data.revision === knownRevision && !dirty && !pendingLocal)) {
+        serverRevision = data.revision;
+        knownRevision = data.revision;
+        writeLocal();
+        setSyncNote(data);
+        return;
+      }
+      if (data.revision !== serverRevision) {
+        if (dirty || pendingLocal || editingNow()) {
+          pendingRemote = data;
+          showRemoteBanner(data);
+        } else applyRemote(data, serverRevision > 0);
+      }
+    }).catch(function () {
+      shared = false;
+      setSyncNote(null);
+    });
+  }
+  function adopt(data) {
+    serverRevision = data.revision || 0;
+    knownRevision = serverRevision;
+    clearPending();
+    pendingRemote = null;
+    if (data.activity) lastActivity = data.activity;
+    hideRemoteBanner();
+    writeLocal();
+    setSyncNote(data);
+  }
+  function openChanges() {
+    triggerEl = document.getElementById("changesBtn");
+    returnCardId = null;
+    openScrim();
+    panel = document.createElement("aside");
+    panel.className = "panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-label", "Changes");
+    var head = document.createElement("div");
+    head.className = "panel-head";
+    head.innerHTML = "<h2>Changes</h2>";
+    var close = button("btn btn-icon");
+    close.setAttribute("aria-label", "Close");
+    close.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+    close.addEventListener("click", function () { closePanel(); });
+    head.appendChild(close);
+    panel.appendChild(head);
+    var body = document.createElement("div");
+    body.className = "panel-body";
+    var intro = document.createElement("p");
+    intro.className = "hint";
+    if (!shared) intro.textContent = "This copy stays in this browser. The shared board keeps everyone’s changes when this page is opened from the published app.";
+    else intro.textContent = (viewerName ? "You are " + viewerName + ". " : "") + "Everyone who can open this board sees the same items. New changes show up here.";
+    body.appendChild(intro);
+    if (!lastActivity.length) {
+      var empty = document.createElement("p");
+      empty.className = "hint";
+      empty.textContent = shared ? "No shared changes yet." : "Nothing shared yet.";
+      body.appendChild(empty);
+    }
+    for (var i = 0; i < lastActivity.length; i++) {
+      var item = document.createElement("div");
+      item.className = "activity-item";
+      var strong = document.createElement("strong");
+      strong.textContent = (lastActivity[i].actorName || "Someone") + " " + (lastActivity[i].summary || "edited the board");
+      var when = document.createElement("span");
+      var at = lastActivity[i].createdAt ? new Date(lastActivity[i].createdAt) : null;
+      when.textContent = at && !isNaN(at.getTime()) ? at.toLocaleString() : "";
+      item.appendChild(strong);
+      item.appendChild(when);
+      body.appendChild(item);
+    }
+    panel.appendChild(body);
+    trapFocus(panel);
+    document.body.appendChild(panel);
+    close.focus();
+  }
+  document.getElementById("changesBtn").addEventListener("click", openChanges);
+
   applyTheme();
   applyAccent();
   syncDocumentTitle();
   render();
-  if (storedRaw && JSON.stringify(state) !== storedRaw) flushSave();
+  if (storedRaw && JSON.stringify(state) !== storedRaw) writeLocal();
+  if (!/[?&]selftest=1/.test(location.search)) {
+    pullBoard().then(function () {
+      if (pullTimer) clearInterval(pullTimer);
+      if (shared) pullTimer = setInterval(function () { pullBoard(); }, 4000);
+    });
+  }
 
   if (/[?&]selftest=1/.test(location.search)) {
     var report = [];
