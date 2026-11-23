@@ -336,15 +336,17 @@
     border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); min-height: 34px;
   }
   .seg button[aria-pressed="true"] { color: #fff; border-color: transparent; }
-  .point-checks { display: flex; flex-wrap: wrap; gap: 8px; }
-  .point-check {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 6px 11px 6px 8px; border-radius: 8px; min-height: 36px;
-    border: 1px solid var(--border); background: var(--surface-2);
-    font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer;
+  .steps { display: flex; flex-direction: column; gap: 8px; }
+  .step { display: flex; align-items: center; gap: 8px; }
+  .step-num { flex: 0 0 auto; width: 1.8em; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .step input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); flex: 0 0 auto; }
+  .step input[type="text"] {
+    flex: 1 1 auto; min-width: 0; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface-2); outline: none;
   }
-  .point-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
-  .point-check[data-on="true"] { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 14%, var(--surface)); }
+  .step input[type="text"]:focus { border-color: var(--accent); background: var(--surface); }
+  .step.is-done input[type="text"] { text-decoration: line-through; color: var(--muted); }
+  .steps .btn { align-self: flex-start; }
   .label-picker { display: flex; flex-wrap: wrap; gap: 7px; }
   .label-toggle {
     font-size: 12px; font-weight: 700; border-radius: 7px; padding: 5px 10px;
@@ -413,7 +415,7 @@
   @media (hover: hover) and (pointer: fine) {
     .board-title:hover, .col-name:hover { background: var(--surface-2); }
     .btn:hover, .add-item:hover, .menu button:hover, .search-clear:hover, .col-grip:hover, .col-menu-btn:hover, .drag-handle:hover { background: var(--surface-3); color: var(--fg); }
-    .point-check:hover { border-color: var(--border-strong); }
+    .step input[type="text"]:hover { border-color: var(--border-strong); }
     button.dash-stat:hover, button.dash-line:hover { background: var(--surface-3); }
     .btn-primary:hover { background: #5b4bd6; color: #fff; }
     .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-lift); }
@@ -526,7 +528,6 @@
   var SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
   var SIZE_COLORS = { XS: "#00c875", S: "#9cd326", M: "#579bfc", L: "#fdab3d", XL: "#ff7b54", XXL: "#e2445c" };
   var POINTS = { XS: 1, S: 2, M: 3, L: 5, XL: 8, XXL: 13 };
-  var STORY_POINTS = [1, 2, 3, 5, 8, 13, 21];
   var AVATAR_COLORS = ["#6c5ce7", "#579bfc", "#00c875", "#fdab3d", "#e2445c", "#a55eea", "#2bccbb", "#ff7b54", "#394778"];
   var GRIP_SVG = '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="6" cy="3.5" r="1.15"/><circle cx="10" cy="3.5" r="1.15"/><circle cx="6" cy="8" r="1.15"/><circle cx="10" cy="8" r="1.15"/><circle cx="6" cy="12.5" r="1.15"/><circle cx="10" cy="12.5" r="1.15"/></svg>';
 
@@ -555,14 +556,20 @@
   function typeOk(id) { for (var i = 0; i < TYPES.length; i++) if (TYPES[i].id === id) return true; return false; }
   function priorityOk(id) { for (var i = 0; i < PRIORITIES.length; i++) if (PRIORITIES[i].id === id) return true; return false; }
   function typeById(id) { for (var i = 0; i < TYPES.length; i++) if (TYPES[i].id === id) return TYPES[i]; return TYPES[2]; }
-  function storyPoint(v) {
-    var n = typeof v === "number" ? v : parseInt(v, 10);
-    for (var i = 0; i < STORY_POINTS.length; i++) if (STORY_POINTS[i] === n) return n;
-    return 0;
-  }
   function cardPoints(card) {
-    if (card && card.points) return card.points;
     return card && POINTS[card.size] || 0;
+  }
+  function cleanSteps(list) {
+    var steps = [];
+    if (!Array.isArray(list)) return steps;
+    for (var i = 0; i < list.length && steps.length < 40; i++) {
+      var step = list[i];
+      if (!step || typeof step !== "object") continue;
+      var text = String(step.text || "").slice(0, 240);
+      if (!text.trim()) continue;
+      steps.push({ text: text, done: !!step.done });
+    }
+    return steps;
   }
   function typeIcon(id, px) {
     var t = typeById(id);
@@ -675,7 +682,7 @@
           notes: String(cd.notes || "").slice(0, 8000),
           type: typeOk(cd.type) ? cd.type : "task",
           size: SIZES.indexOf(cd.size) === -1 ? "" : cd.size,
-          points: storyPoint(cd.points),
+          steps: cleanSteps(cd.steps),
           epic: typeof cd.epic === "string" ? cd.epic : "",
           priority: priorityOk(cd.priority) ? cd.priority : "none",
           assignee: String(cd.assignee || "").slice(0, 80),
@@ -864,7 +871,8 @@
     for (var i = 0; i < labels.length; i++) { var l = labelById(labels[i]); if (l) hay += " " + l.name.toLowerCase(); }
     hay += " " + typeById(card.type).name.toLowerCase();
     hay += " " + String(card.size || "").toLowerCase();
-    if (card.points) hay += " " + card.points;
+    var stepList = card.steps || [];
+    for (var si = 0; si < stepList.length; si++) hay += " " + String(stepList[si].text || "").toLowerCase();
     hay += " " + priorityById(card.priority).name.toLowerCase();
     return hay.indexOf(query) !== -1;
   }
@@ -1181,12 +1189,20 @@
       pill.textContent = p.name;
       foot.appendChild(pill);
     }
-    if (card.points) {
+    var writtenSteps = [];
+    var doneSteps = 0;
+    var allSteps = card.steps || [];
+    for (var st = 0; st < allSteps.length; st++) {
+      if (!String(allSteps[st].text || "").trim()) continue;
+      writtenSteps.push(allSteps[st]);
+      if (allSteps[st].done) doneSteps++;
+    }
+    if (writtenSteps.length) {
       var pts = document.createElement("span");
       pts.className = "size-badge";
-      pts.style.setProperty("--sz", "#6c5ce7");
-      pts.textContent = String(card.points);
-      pts.title = card.points + " story points";
+      pts.style.setProperty("--sz", doneSteps === writtenSteps.length ? "#00c875" : "#6c5ce7");
+      pts.textContent = doneSteps + "/" + writtenSteps.length;
+      pts.title = doneSteps + " of " + writtenSteps.length + " story points done";
       foot.appendChild(pts);
     }
     if (card.size) {
@@ -1939,39 +1955,66 @@
     else titleInput.focus();
   }
   function storyPointsField(card) {
+    if (!Array.isArray(card.steps)) card.steps = [];
     var wrap = document.createElement("div");
-    wrap.className = "point-checks";
-    wrap.setAttribute("role", "group");
-    wrap.setAttribute("aria-label", "Story points");
-    for (var i = 0; i < STORY_POINTS.length; i++) {
-      (function (n) {
-        var label = document.createElement("label");
-        label.className = "point-check";
-        var input = document.createElement("input");
-        input.type = "checkbox";
-        input.checked = card.points === n;
-        input.setAttribute("aria-label", n + " story points");
-        if (input.checked) label.setAttribute("data-on", "true");
-        var text = document.createElement("span");
-        text.textContent = String(n);
-        label.appendChild(input);
-        label.appendChild(text);
-        input.addEventListener("change", function () {
-          card.points = input.checked ? n : 0;
-          var boxes = wrap.querySelectorAll("input");
-          var labels = wrap.querySelectorAll(".point-check");
-          for (var k = 0; k < boxes.length; k++) {
-            var on = boxes[k] === input && input.checked;
-            boxes[k].checked = on;
-            if (on) labels[k].setAttribute("data-on", "true");
-            else labels[k].removeAttribute("data-on");
-          }
-          save(true);
-          render();
-        });
-        wrap.appendChild(label);
-      })(STORY_POINTS[i]);
+    wrap.className = "steps";
+    function touch(idx) {
+      while (card.steps.length <= idx) card.steps.push({ text: "", done: false });
+      return card.steps[idx];
     }
+    function paint() {
+      wrap.innerHTML = "";
+      var count = Math.max(4, card.steps.length);
+      for (var i = 0; i < count; i++) {
+        (function (idx) {
+          var current = card.steps[idx] || { text: "", done: false };
+          var row = document.createElement("div");
+          row.className = "step" + (current.done && String(current.text || "").trim() ? " is-done" : "");
+          var box = document.createElement("input");
+          box.type = "checkbox";
+          box.checked = !!current.done;
+          box.setAttribute("aria-label", "Mark story point " + (idx + 1) + " complete");
+          var num = document.createElement("span");
+          num.className = "step-num";
+          num.textContent = (idx + 1) + ")";
+          var text = document.createElement("input");
+          text.type = "text";
+          text.value = current.text || "";
+          text.maxLength = 240;
+          text.placeholder = "Write this point";
+          text.setAttribute("aria-label", "Story point " + (idx + 1));
+          box.addEventListener("change", function () {
+            var step = touch(idx);
+            step.done = box.checked;
+            row.classList.toggle("is-done", box.checked && String(step.text || "").trim());
+            save(true);
+            render();
+          });
+          text.addEventListener("input", function () {
+            var step = touch(idx);
+            step.text = text.value;
+            row.classList.toggle("is-done", !!step.done && String(step.text || "").trim());
+            save();
+            renderSoon();
+          });
+          row.appendChild(box);
+          row.appendChild(num);
+          row.appendChild(text);
+          wrap.appendChild(row);
+        })(i);
+      }
+      var add = button("btn");
+      add.textContent = "Add point";
+      add.addEventListener("click", function () {
+        card.steps.push({ text: "", done: false });
+        paint();
+        var inputs = wrap.querySelectorAll('input[type="text"]');
+        var last = inputs[inputs.length - 1];
+        if (last) last.focus();
+      });
+      wrap.appendChild(add);
+    }
+    paint();
     return wrap;
   }
   function paintLabel(b, l, on) {
@@ -2723,8 +2766,18 @@
     expect("placeholder dropped", dropPlaceholder(renamed), true);
     expect("board renamed", renamed.title, "Email & Contact Board");
     expect("real card kept", renamed.columns[0].cards.map(function (c) { return c.title; }), ["Reply to Maya"]);
-    expect("story points kept", storyPoint(8), 8);
-    expect("story points rejected", storyPoint(4), 0);
+    var withSteps = normalize({
+      title: "X",
+      columns: [{ id: "c", name: "G", cards: [{ id: "1", title: "T", steps: [
+        { text: "Write the intro", done: true },
+        { text: "   ", done: true },
+        { text: "Send it", done: false }
+      ] }] }]
+    });
+    expect("story points kept", withSteps.columns[0].cards[0].steps, [
+      { text: "Write the intro", done: true },
+      { text: "Send it", done: false }
+    ]);
     var failed = report.some(function (line) { return line.indexOf("FAIL") === 0; });
     document.documentElement.setAttribute("data-selftest", failed ? "fail" : "pass");
     document.documentElement.setAttribute("data-selftest-detail", report.join(" | "));

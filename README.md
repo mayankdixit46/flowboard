@@ -8,7 +8,7 @@ A colorful, fully customizable agile Kanban board that runs entirely in your bro
 - Groups you can add, rename, recolor, reorder, and delete
 - Drag cards with a mouse, or by the grip on a phone
 - Work item types: **Epic, Story, Task, Bug**
-- **T-shirt size** estimates (XS–XXL) and story points (1, 2, 3, 5, 8, 13, 21)
+- **T-shirt size** estimates (XS–XXL) and a story-point checklist you can check off
 - Priority levels
 - **Epic roll-ups** — linked count, points, and overdue items
 - Custom labels, assignees, due dates (today and overdue)
