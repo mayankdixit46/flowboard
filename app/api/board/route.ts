@@ -10,10 +10,10 @@ function stageOf(identity: Identity): "preview" | "production" {
   return identity.verified && identity.stage === "preview" ? "preview" : "production";
 }
 
-function actorName(identity: Identity): string {
-  if (!identity.verified) return "";
-  if (identity.kind === "key") return identity.name || "API key";
-  return identity.name || "Someone";
+function viewerOf(identity: Identity): { name: string; email: string; kind: "person" | "key" } {
+  if (!identity.verified) return { name: "", email: "", kind: "person" };
+  if (identity.kind === "key") return { name: identity.name || "API key", email: "", kind: "key" };
+  return { name: identity.name || "Someone", email: identity.email || "", kind: "person" };
 }
 
 function actorSub(identity: Identity): string {
@@ -51,7 +51,8 @@ export async function GET(request: Request) {
     board: row ? row.document : null,
     revision: row ? Number(row.revision) : 0,
     updatedBy: row ? row.updated_by : "",
-    viewerName: actorName(identity),
+    viewerName: viewerOf(identity).name,
+    viewer: viewerOf(identity),
     activity: await activityFor(stage),
   });
 }
@@ -60,7 +61,8 @@ export async function PUT(request: Request) {
   const identity = await requireIdentity(request);
   if (identity instanceof Response) return identity;
   const stage = stageOf(identity);
-  const name = actorName(identity) || "Someone";
+  const viewer = viewerOf(identity);
+  const name = viewer.name || "Someone";
   const sub = actorSub(identity);
   let payload: unknown;
   try {
@@ -111,14 +113,16 @@ export async function PUT(request: Request) {
       board: saved.board,
       revision: saved.revision,
       updatedBy: saved.updatedBy,
-      viewerName: actorName(identity),
+      viewerName: viewer.name,
+      viewer,
       activity: await activityFor(stage),
     }, 409);
   }
   return json({
     revision: saved.revision,
     updatedBy: saved.updatedBy,
-    viewerName: actorName(identity),
+    viewerName: viewer.name,
+    viewer,
     activity: await activityFor(stage),
   });
 }

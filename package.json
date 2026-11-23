@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "node scripts/copy-board.mjs && next dev -p 8742",
     "build": "node scripts/copy-board.mjs && next build && node scripts/migrate.mjs",
-    "start": "next start -p 8742"
+    "start": "next start -H 0.0.0.0 -p ${PORT:-8742}"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",

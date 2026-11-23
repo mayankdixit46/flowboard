@@ -113,6 +113,20 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .stats { font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .account {
+    display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 220px;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--fg);
+    border-radius: 999px; padding: 3px 10px 3px 3px; cursor: pointer;
+  }
+  .account-mark {
+    width: 28px; height: 28px; border-radius: 50%; flex: 0 0 auto;
+    display: grid; place-items: center; background: var(--accent); color: #fff;
+    font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  }
+  .account-text { display: flex; flex-direction: column; min-width: 0; text-align: left; line-height: 1.15; }
+  .account-text strong, .account-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .account-text strong { font-size: 12px; font-weight: 700; }
+  .account-text span { font-size: 11px; color: var(--muted); font-weight: 600; }
   .spacer { flex: 1 1 auto; }
   .search {
     display: flex; align-items: center; gap: 7px;
@@ -451,8 +465,9 @@
     .spacer, .stats { display: none; }
     .search { order: 5; flex: 1 1 100%; max-width: none; }
     .actions { margin-left: auto; }
-    .board-title { max-width: 52vw; font-size: 18px; }
-    .btn-label { display: none; }
+    .board-title { max-width: 42vw; font-size: 18px; }
+    .btn-label, .account-text { display: none; }
+    .account { padding: 3px; max-width: none; }
     .col, .add-col { flex-basis: calc(100vw - 92px); width: calc(100vw - 92px); }
   }
   @media (prefers-reduced-motion: no-preference) {
@@ -479,6 +494,10 @@
       <button type="button" class="search-clear" id="searchClear" aria-label="Clear search" hidden>&times;</button>
     </div>
     <div class="actions">
+      <button type="button" class="account" id="accountBtn" aria-label="Account">
+        <span class="account-mark" id="accountMark" aria-hidden="true">?</span>
+        <span class="account-text"><strong id="accountName">Account</strong><span id="accountEmail"></span></span>
+      </button>
       <button type="button" class="btn btn-icon" id="themeBtn" title="Theme" aria-label="Switch theme"></button>
       <button type="button" class="btn" id="changesBtn" aria-label="Changes from other people"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h13"/></svg><span class="btn-label">Changes</span></button>
       <button type="button" class="btn" id="summaryBtn" aria-label="Summary dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19V5M4 19h16"/><path d="M8 16v-5M12 16V8M16 16v-3"/></svg><span class="btn-label">Summary</span></button>
@@ -765,6 +784,8 @@
   var pullTimer = 0;
   var lastActivity = [];
   var viewerName = "";
+  var viewer = null;
+  var signedOut = false;
   var pendingRemote = null;
   try { knownRevision = parseInt(localStorage.getItem(LS_REV) || "0", 10) || 0; } catch (eRev) { knownRevision = 0; }
 
@@ -2798,6 +2819,86 @@
     var right = normalize(b);
     return !!(left && right && canon(left) === canon(right));
   }
+  function initials(name) {
+    var parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return "?";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+  }
+  function setAccount() {
+    var btn = document.getElementById("accountBtn");
+    var mark = document.getElementById("accountMark");
+    var nameEl = document.getElementById("accountName");
+    var emailEl = document.getElementById("accountEmail");
+    if (!btn || !mark || !nameEl || !emailEl) return;
+    var name = "This browser";
+    var detail = "On this device";
+    var label = "Saved in this browser only";
+    if (shared && viewer && viewer.name) {
+      name = viewer.name;
+      detail = viewer.kind === "key" ? "API key" : (viewer.email || "Cursor account");
+      label = viewer.kind === "key" ? "Calling as " + name : "Signed in as " + name;
+    } else if (signedOut) {
+      name = "Sign in";
+      detail = "Cursor account";
+      label = "Not signed in";
+    }
+    mark.textContent = name === "This browser" || name === "Sign in" ? "?" : initials(name);
+    nameEl.textContent = name;
+    emailEl.textContent = detail;
+    btn.title = label;
+    btn.setAttribute("aria-label", label);
+  }
+  function openAccount() {
+    triggerEl = document.getElementById("accountBtn");
+    returnCardId = null;
+    openScrim();
+    panel = document.createElement("aside");
+    panel.className = "panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-label", "Account");
+    var head = document.createElement("div");
+    head.className = "panel-head";
+    head.innerHTML = "<h2>Account</h2>";
+    var close = button("btn btn-icon");
+    close.setAttribute("aria-label", "Close");
+    close.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+    close.addEventListener("click", function () { closePanel(); });
+    head.appendChild(close);
+    panel.appendChild(head);
+    var body = document.createElement("div");
+    body.className = "panel-body";
+    var title = document.createElement("p");
+    title.style.fontWeight = "700";
+    title.style.margin = "0 0 4px";
+    var detail = document.createElement("p");
+    detail.className = "hint";
+    var note = document.createElement("p");
+    note.className = "hint";
+    if (shared && viewer && viewer.name) {
+      title.textContent = viewer.name;
+      detail.textContent = viewer.kind === "key" ? "API key" : (viewer.email || "Cursor account");
+      note.textContent = viewer.kind === "key"
+        ? "This request is using an API key. Changes are recorded under the key’s name."
+        : "This is the Cursor account that opened the app. Your edits are recorded under this name, so other people who can open the board can see who changed what.";
+    } else if (signedOut) {
+      title.textContent = "Not signed in";
+      detail.textContent = "";
+      note.textContent = "Open the published app while signed in to Cursor. The board then uses that account.";
+    } else {
+      title.textContent = "This browser";
+      detail.textContent = "";
+      note.textContent = "This copy stays on this device. The published app uses the Cursor account of whoever opens it, and everyone who can open it shares one board.";
+    }
+    body.appendChild(title);
+    if (detail.textContent) body.appendChild(detail);
+    body.appendChild(note);
+    panel.appendChild(body);
+    trapFocus(panel);
+    document.body.appendChild(panel);
+    close.focus();
+  }
   function setSyncNote(data) {
     var note = document.getElementById("syncNote");
     if (!note) return;
@@ -2896,11 +2997,24 @@
   }
   function pullBoard() {
     return fetch("/api/board", { headers: { accept: "application/json" }, cache: "no-store" }).then(function (res) {
+      if (res.status === 401) {
+        shared = false;
+        signedOut = true;
+        viewer = null;
+        viewerName = "";
+        setAccount();
+        setSyncNote(null);
+        return null;
+      }
       if (!res.ok) throw new Error("offline");
       return res.json();
     }).then(function (data) {
+      if (!data) return;
       shared = true;
+      signedOut = false;
       viewerName = data.viewerName || "";
+      viewer = data.viewer && data.viewer.name ? data.viewer : (viewerName ? { name: viewerName, email: "", kind: "person" } : null);
+      setAccount();
       if (data.activity) lastActivity = data.activity;
       if (pendingRemote && data.revision === pendingRemote.revision) {
         setSyncNote(data);
@@ -2954,6 +3068,10 @@
       }
     }).catch(function () {
       shared = false;
+      signedOut = false;
+      viewer = null;
+      viewerName = "";
+      setAccount();
       setSyncNote(null);
     });
   }
@@ -2990,7 +3108,7 @@
     var intro = document.createElement("p");
     intro.className = "hint";
     if (!shared) intro.textContent = "This copy stays in this browser. The shared board keeps everyone’s changes when this page is opened from the published app.";
-    else intro.textContent = (viewerName ? "You are " + viewerName + ". " : "") + "Everyone who can open this board sees the same items. New changes show up here.";
+    else intro.textContent = (viewerName ? "Signed in as " + viewerName + ". " : "") + "Everyone who can open this board sees the same items. New changes show up here.";
     body.appendChild(intro);
     if (!lastActivity.length) {
       var empty = document.createElement("p");
@@ -3016,6 +3134,8 @@
     close.focus();
   }
   document.getElementById("changesBtn").addEventListener("click", openChanges);
+  document.getElementById("accountBtn").addEventListener("click", openAccount);
+  setAccount();
 
   applyTheme();
   applyAccent();

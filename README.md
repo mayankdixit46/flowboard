@@ -4,7 +4,7 @@ A colorful, fully customizable agile Kanban board.
 
 **Live page:** https://mayankdixit46.github.io/flowboard/
 
-The published app keeps one shared board in its database. Closing the window does not clear it, and anyone who can open the app sees the same items. Changes lists who did what. On the GitHub Pages copy, the board stays in that browser only.
+The published app keeps one shared board in its database. Closing the window does not clear it, and anyone who can open the app sees the same items. The account button shows the Cursor account that opened the app, and Changes records that name. On the GitHub Pages copy, the board stays in that browser only.
 
 ## Features
 - Groups you can add, rename, recolor, reorder, and delete
